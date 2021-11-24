@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Page</title>
+    <style>
+        #button-container { background: #fff; border: none; padding: 0 1rem; margin: 0.5rem; border-radius: 3px; outline: none; color: #fff; }
+    </style>
+</head>
+<body>
+    <h1>Pagina amministratore</h1>
+    <div id="cronologia-container">
+        <label id="label-cronologia">riepilogo di tutti i dati di qualunque tipo inseriti dagli utenti</label><br>
+        <textarea id="temperature-text" cols="60" rows="10"></textarea>
+        <textarea id="umidita-text" cols="60" rows="10"></textarea>
+        <textarea id="velocita-text" cols="60" rows="10"></textarea>
+    </div><br>
+
+    <div id="log-container">
+        <label>Logs:</label><br>
+        <textarea id="log-text" cols="60" rows="10"></textarea>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script type="text/javascript">
+        var socket = io();
+
+        var tipo=""; //per vedere la tipologia corrente
+
+        render();
+
+        socket.on("receive data", (data, tipo) => {
+            fillTable(data, tipo+"-text");
+        });
+
+        socket.on("forward average" , (tipo, date, room) => {
+            console.log("richiesta arrivata");
+            console.log(tipo);
+
+            document.getElementById("log-text").innerHTML += "Richiesta del calcolo della media effetuata dall'utente "+ room +"\n";
+
+            var text = document.getElementById(tipo+"-text").innerHTML;
+            console.log("valori della tabella sottostante\n" + text);
+            var lines = text.split('\n');
+            console.log("PRIMO VALORE DELLA TABELLA\n"+ lines[0]);
+            var entries = [];
+            var entry = {date:'', ora:'', id_sensore:'', valore: 0};
+            var somma = 0;
+            var count = 0;
+            var media;
+            
+            lines.forEach((line) => {
+                var arrayDate = line.split(/\s+/)[0].split("/");
+                entry.date = arrayDate.join("-");
+                entry.ora = line.split(/\s+/)[1]; 
+                entry.id_sensore = line.split(/\s+/)[2]; 
+                entry.valore = parseFloat(line.split(/\s+/)[3]);
+
+                if(entry.date === date){
+                    somma += entry.valore;
+                    count++;
+                }
+                console.log(count);
+            });
+
+            media = somma/count;
+
+            document.getElementById("log-text").innerHTML += "calcolo effettuato e restituito all'utente "+ room +"\n";
+
+            socket.emit("response average", tipo, date, room, media);
+            console.log(media);
+        });
+
+        //per popolare la text area dei dati
+        function fillTable(data, area){
+            var entries = new Array();
+            var lines = new Array();
+            lines = data.split('\n');
+            lines.forEach((entry) =>{
+                document.getElementById(area).innerHTML+= entry+'\n';
+            });
+            document.getElementById(area).innerHTML += "\n"
+        }
+
+        //aggiungere un utente e caricare la cronologia
+        function render(){
+            socket.emit('login admin', tipo);
+
+            socket.on("upload cronologia", (temperatureData, umiditaData, velocitaData) => {
+               console.log(umiditaData);
+
+               document.getElementById("temperature-text").innerHTML = '';
+               document.getElementById("umidita-text").innerHTML = '';
+               document.getElementById("velocita-text").innerHTML = '';
+
+               fillTable(temperatureData, "temperature-text");
+               fillTable(umiditaData, "umidita-text");
+               fillTable(velocitaData, "velocita-text");
+
+           });
+        }
+    </script>
+</body>
+</html>

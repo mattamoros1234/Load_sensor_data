@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>upload sensor data</title>
+    <style>
+        #button-container { background: #fff; border: none; padding: 0 1rem; margin: 0.5rem; border-radius: 3px; outline: none; color: #fff; }
+    </style>
+</head>
+<body>
+    <h1>Pagina per il caricamento dei dati ambientali</h1>
+    <div id="button-container" >
+        <button id="temperatura" >Temperatura</button>
+        <button id="umidità" >umidità</button>
+        <button id="velocita-aria">Velocita dell'aria</button>
+    </div>
+    <div style="display: none;" id="cronologia-container">
+        <label id="label-cronologia"></label><br>
+        <textarea id="temperature-text" cols="60" rows="10"></textarea>
+        <textarea id="umidita-text" cols="60" rows="10"></textarea>
+        <textarea id="velocita-text" cols="60" rows="10"></textarea>
+    </div><br>
+
+    <div id="file-container" style="display: none;">
+        <label for="upload">Scegliere il file da aggiungere:</label><br>
+        <input type="file" id="data-file"/>
+        <button id="add-file">carica</button>
+    </div><br>
+
+    <div id="entry-container" style="display: none;">
+        <label for="data-entry">Inserire i dati a mano:</label><br>
+        <input type="text" id="data-entry" size="40"/>
+        <button id="add-entry">Aggiungi</button>
+    </div><br><br>
+
+    <div id="media-container" style="display: none;">
+        Richiede il calcolo della media inserendo la data qua sotto.
+        <form action="" id="form-media">
+            <label for="birthday">Date:</label>
+            <input type="date" id="date" name="birthday">
+            <input type="submit">
+        </form><br>
+        <p id = "risultato"></p>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script type="text/javascript">
+        var socket = io();
+
+        var tipo=""; //per vedere la tipologia corrente
+        var file;
+
+        var cronologiaContainer = document.getElementById('cronologia-container');
+        var temperaturaButton = document.getElementById('temperatura');
+        var cronologiaLabel = document.getElementById('label-cronologia');
+        var entryContainer = document.getElementById('entry-container');
+        var fileContainer = document.getElementById('file-container');
+        var mediaContainer = document.getElementById('media-container');
+        var umiditaButton = document.getElementById('umidità');
+        var velocitaButton = document.getElementById('velocita-aria');
+
+        //elementi del div file-container
+        var inputFile = document.getElementById("data-file");
+        var buttonFile = document.getElementById("add-file");
+
+        //elementi del div entry-container
+        var inputEntry = document.getElementById("data-entry");
+        var buttonEntry = document.getElementById("add-entry");
+
+        //elementi del div media-container
+        var mediaData = document.getElementById("date");
+
+        /*-- EVENTI CHE SCATANO QUANDO L'UTENTE SCEGLIE UNA TIPOLOGIA DI DATI DA AGGIUNGERE*/
+        temperaturaButton.addEventListener('click', () => {
+           viewApp("temperature", "°C");
+           document.getElementById("umidita-text").style.display = "none";
+           document.getElementById("velocita-text").style.display = "none";
+
+           tipo = "temperature";
+           render();
+
+        });
+
+        umiditaButton.addEventListener('click', () => {
+           viewApp("umidità", "Pa");
+           document.getElementById("temperature-text").style.display = "none";
+           document.getElementById("velocita-text").style.display = "none";
+
+           tipo = "umidita";
+           render()
+
+        });
+
+        velocitaButton.addEventListener('click', () => {
+           viewApp("velocita", "km/h");
+           document.getElementById("temperature-text").style.display = "none";
+           document.getElementById("umidita-text").style.display = "none";
+
+           tipo = "velocita";
+           render()
+        });
+
+        //gestione dell'aggiunta di un file
+
+        inputFile.addEventListener('change', (e) => {
+            file = e.target.files[0];
+            console.log(file.name);
+            buttonFile.addEventListener('click', () => {
+                var reader = new FileReader();
+                reader.onload = readSuccess;
+                function readSuccess( evt ) {
+                    console.log(evt.target.result);
+	    			socket.emit("send data", tipo, evt.target.result);                               
+                }
+                reader.readAsText(file);
+            });
+        });
+
+        //gestione dell'aggiunta di una entry
+
+        buttonEntry.addEventListener('click', function(e){
+            e.preventDefault();
+            if(inputEntry.value){
+                socket.emit('send data', tipo, inputEntry.value);
+                inputEntry.value = '';
+                console.log(inputEntry.value);
+            }
+        });
+
+        //gestione della richiesta della media 
+
+        document.getElementById("form-media").addEventListener('submit', function(e){
+            e.preventDefault();
+            console.log(mediaData.value);
+            socket.emit("request average", tipo, mediaData.value);
+
+            mediaData.value = '';
+        });
+
+
+
+        socket.on("receive data", (data, tipo) => {
+            fillTable(data, tipo+"-text");
+        });
+
+        socket.on("final average", (tipo, date, media) => {
+            document.getElementById("risultato").innerHTML += "la media di "+tipo+" ottenute il giorno "+date+" è uguale a "+ media+"<br>";
+        });
+
+        function viewApp(tipo, unita){
+            //abilito tutti i campi utili per la visualizzazione e l'inserimento dei dati
+            cronologiaContainer.style.display = "block";
+            fileContainer.style.display = "block";
+            entryContainer.style.display = "block";
+            mediaContainer.style.display = "block";
+
+
+            cronologiaLabel.innerText = "Cronologia di "+ tipo +" in " + unita;
+            document.getElementById('button-container').hidden = "true";
+        }
+
+        function fillTable(data, area){
+            var lines = new Array();
+            lines = data.split('\n');
+            if(lines.length >= 2){
+                lines.forEach((entry) =>{
+                    document.getElementById(area).innerHTML+= entry+'\n';
+                });
+            }else{
+                document.getElementById(area).innerHTML+= lines[0];
+            }
+        }
+
+        function render(){
+            socket.emit('new user', tipo);
+
+            socket.on("upload cronologia", (data) => {
+               console.log(data);
+               document.getElementById(tipo+"-text").innerHTML = '';
+               fillTable(data, tipo+"-text");  
+           });
+        }
+    </script>
+</body>
+</html>
