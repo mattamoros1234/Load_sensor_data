@@ -19,7 +19,7 @@
 
     <div id="log-container">
         <label>Logs:</label><br>
-        <textarea id="log-text" cols="60" rows="10"></textarea>
+        <textarea id="log-text" cols="100" rows="20"></textarea>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -44,7 +44,6 @@
             console.log("valori della tabella sottostante\n" + text);
             var lines = text.split('\n');
             console.log("PRIMO VALORE DELLA TABELLA\n"+ lines[0]);
-            var entries = [];
             var entry = {date:'', ora:'', id_sensore:'', valore: 0};
             var somma = 0;
             var count = 0;
@@ -70,6 +69,10 @@
 
             socket.emit("response average", tipo, date, room, media);
             console.log(media);
+        });
+
+        socket.on("alert", (tipo, e) => {
+            document.getElementById("log-text").innerHTML += "[ALERT] l'entry di "+tipo+" "+ e + " ha superato la soglia!!!!!!";
         });
 
         //per popolare la text area dei dati

@@ -16,5 +16,13 @@
   "devDependencies": {},
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mattamoros1234/Load_sensor_data.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mattamoros1234/Load_sensor_data/issues"
+  },
+  "homepage": "https://github.com/mattamoros1234/Load_sensor_data#readme"
 }

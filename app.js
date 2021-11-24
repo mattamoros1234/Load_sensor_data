@@ -7,6 +7,9 @@ const server = http.createServer(app);
 const { Server, Socket } = require("socket.io");
 const io = new Server(server);
 
+var soglia = 0;
+
+
 app.use(bodyParser.urlencoded({ extended: true }));
 
 app.get('/home', (req, res) => {
@@ -43,8 +46,6 @@ var adminId;
 io.on("connection", (socket) =>{
     console.log(socket.id+" is connected");
 
-
-
     //se ci connettiamo come utente
     socket.on("new user", (tipo) => {
         socket.join(tipo);
@@ -71,14 +72,29 @@ io.on("connection", (socket) =>{
 
         //per aggionare i dati correnti di cronologia
         if(tipo === "temperature"){
-            temperatureData += data;
+            temperatureData += "/n"+data;
+            soglia = 25;
         }
         if(tipo === "umidita"){
             umiditaData +=data;
+            soglia = 250
         }
         if(tipo === "velocita"){
             velocitaData += data;
+            soglia = 20;
         }
+
+        //
+
+        var lines = data.split('\n');
+        var entry = {date:'', ora:'', id_sensore:'', valore: 0};
+        lines.forEach((line) => { 
+            entry.valore = parseFloat(line.split(/\s+/)[3]);
+
+            if(entry.valore > soglia){
+                io.emit("alert", tipo, line);
+            }    
+        });
     });
 
     //se ci connettiamo come admin
@@ -101,8 +117,6 @@ io.on("connection", (socket) =>{
         io.to(room).emit("final average", tipo, date, media);
     });
 
-    socket.on('disconnect', () => {
-    });
 });
 
 function uploadLogFiles(tipo, data){
